@@ -15,41 +15,48 @@ Learn to use XML constraint techniques to prevent AI from suggesting non-existen
 - Explicitly define available vs. unavailable dependencies
 - Create constraints that guide AI toward implementable solutions
 
+## Files
+
+| File | Purpose |
+|---|---|
+| `starter/problem_prompts.py` | Three XML prompts that lack constraints, their risks, and an improvement checklist |
+| `starter/constraint_templates.py` | The three prompts as templates, with `[STUDENT TODO]` constraint slots for you to complete |
+| `solution/enhanced_prompts.py` | Completed prompts and an analysis of how the constraints work (in the Udacity workspace) |
+| `PROMPTS.md` | The structured prompts shown on this exercise's Solution page in the classroom |
+
+This exercise has no automated tests: you check your constraints against the improvement checklist and the solution.
+
 ## Instructions
 
 ### Step 1: Review Problem Prompts
 ```bash
-cd concept2-constraint-prevention/starter
-python analyze_problems.py
+cd starter
+python problem_prompts.py
 ```
 
 **What you'll see:**
-- XML prompts that lack proper constraints
-- Simulated AI responses showing phantom dependency issues
-- Over-engineering patterns that result from unconstrained prompts
+- Three XML prompts that lack proper constraints: large CSV file processing, logging in a discount calculator, and a mobile notification system
+- The missing constraints, phantom dependency risks, and over-engineering risks for each
+- A constraint improvement checklist for each prompt
 
 ### Step 2: Practice Constraint Design
-1. **Examine** the problematic prompts in `starter/problem_prompts.py`
-2. **Identify** what constraints are missing using `starter/constraint_analyzer.py`
-3. **Add** appropriate constraint tags using templates in `starter/constraint_templates.py`
-4. **Test** your enhanced prompts using `starter/constraint_tester.py`
-
-### Step 3: Run Prevention Tests
 ```bash
-pytest test_constraint_effectiveness.py -v
+python constraint_templates.py
 ```
 
-**Expected Output:**
-- **Phantom dependency prevention**: Verify constraints eliminate invalid library suggestions
-- **Complexity control tests**: Check that constraints prevent over-engineering
-- **Architecture compatibility tests**: Ensure constraints maintain system integration
+1. **Examine** the problematic prompts in `problem_prompts.py`
+2. **Identify** what constraints are missing, using the improvement checklist from Step 1
+3. **Add** appropriate constraint tags by completing the templates in `constraint_templates.py` (replace every `[STUDENT TODO]`)
+4. **Optionally**, ask Claude Code to draft the constraints. Then check that every library it lists really exists (on PyPI or in its official documentation), remove anything it claims about tools you don't have, and confirm the original `<context>` is still there
 
-### Step 4: Compare with Solution
+### Step 3: Compare with Solution
+In the Udacity workspace, the `solution` folder sits next to `starter`:
 ```bash
 cd ../solution
-python analyze_problems.py
-pytest test_constraint_effectiveness.py -v
+python enhanced_prompts.py
 ```
+
+**What you'll see:** the three completed prompts, then an analysis of how their constraints prevent phantom dependencies, prevent over-engineering, and keep the solution compatible with the existing system.
 
 ## Exercise Template
 
@@ -66,8 +73,8 @@ For each problematic prompt, identify:
 - [ ] `<allowed_libraries>` explicitly lists available dependencies
 - [ ] `<forbidden_approaches>` prevents problematic patterns
 - [ ] `<complexity_limits>` sets appropriate solution boundaries
-- [ ] `<integration_requirements>` specifies system compatibility needs
-- [ ] `<performance_constraints>` defines efficiency requirements
+- [ ] `<scope_boundaries>` and `<preservation_requirements>` keep changes limited to what was asked
+- [ ] `<integration_requirements>` and `<existing_services>` specify system compatibility needs
 
 ### Quality Assessment
 
@@ -92,4 +99,4 @@ After this exercise, you should be able to:
 3. Prevent over-engineering through complexity boundaries
 4. Create constraints that ensure architectural compatibility
 
-Progress to Concept 3 to learn advanced example and thinking tag techniques.
+Progress to Concept 3 to learn complexity control with examples and scope boundaries.

@@ -6,7 +6,7 @@ These exercises provide hands-on practice with structured prompt engineering tec
 
 ## Exercise Progression
 
-These exercises directly correspond to the 3 quiz topics covered in Lesson 3:
+Each exercise practices preventing one of the AI-generated code patterns from Lesson 2:
 
 ### **Concept 1: Context Gap Prevention** (Beginner)
 **Focus**: Using structured communication to prevent AI from losing existing functionality  
@@ -35,25 +35,23 @@ By completing all exercises, you will:
 
 - **Transform** vague prompts into structured format that improves AI accuracy by up to 30%
 - **Prevent** phantom dependencies, over-engineering, and context gaps through proper constraints
-- **Guide** AI reasoning systematically using examples and thinking structures
+- **Guide** AI toward appropriately-scoped solutions using examples and constraints
 - **Create** production-ready prompts for complex enterprise development scenarios
 - **Apply** all structured communication techniques learned in Lesson 3 to real-world development challenges
 
 ## Exercise Structure
 
-Each concept follows this consistent pattern:
+Each concept has the same layout:
 
 ```
-concept-n-name/
-├── README.md           # Exercise instructions and learning objectives
-├── starter/            # Files for student practice
-│   ├── problem_*.py    # Problematic examples to improve
-│   ├── template_*.py   # Templates for student completion
-│   └── test_*.py       # Tests to verify learning
-└── solution/           # Complete solutions and explanations
-    ├── solution_*.py   # Completed examples
-    └── test_*.py       # Passing tests
+conceptN-name/
+├── README.md     # Exercise instructions and learning objectives
+├── PROMPTS.md    # The structured prompts shown on the Solution page
+├── starter/      # Files for student practice: problem prompts, templates to complete, and (Concepts 1 and 3) tests
+└── solution/     # Completed prompts and explanations (in the Udacity workspace)
 ```
+
+Concepts 1 and 3 include tests that check your prompts. Concept 2 has no automated tests: you compare your constraints with the solution.
 
 ## Prerequisites
 
@@ -66,7 +64,7 @@ concept-n-name/
 
 1. **Start with Concept 1** - Master basic XML structure first
 2. **Progress sequentially** - Each concept builds on previous skills
-3. **Run tests frequently** - Use provided tests to verify learning
+3. **Run tests frequently** - Use the provided tests (Concepts 1 and 3) to verify learning
 4. **Compare with solutions** - Study solution approaches after attempting exercises
 5. **Practice iteratively** - XML prompting improves with systematic practice
 
@@ -80,17 +78,17 @@ You're ready to progress when you can:
 
 ## Connection to Course
 
-These exercises directly correspond to the quiz assessments mentioned in Lesson 3:
+Each exercise prevents one of the Lesson 2 patterns:
 
-- **Quiz A**: Context Gap Prevention → Concept 1 exercises
-- **Quiz B**: Phantom Dependency Prevention → Concept 2 exercises  
-- **Quiz C**: Complexity Control → Concept 3 exercises
+- **Context Gap** → Concept 1: Context Gap Prevention
+- **Phantom Dependencies** → Concept 2: Phantom Dependency Prevention
+- **Over-Engineering** → Concept 3: Complexity Control
 
 ## Tips for Success
 
 1. **Be Systematic**: Follow the XML structure hierarchy consistently
 2. **Start Simple**: Master basic tags before attempting advanced techniques
-3. **Test Frequently**: Use provided tests to verify your understanding
+3. **Test Frequently**: Use the provided tests (Concepts 1 and 3) to verify your understanding
 4. **Think Prevention**: Always consider what Lesson 2 patterns you're preventing
 5. **Practice Iteration**: XML prompting skills improve through repetitive practice
 
@@ -98,7 +96,7 @@ These exercises directly correspond to the quiz assessments mentioned in Lesson 
 
 - Review Lesson 3 video content for technique explanations
 - Use provided templates as starting points for your solutions
-- Run tests to get immediate feedback on your progress
+- Run the tests (Concepts 1 and 3) to get immediate feedback on your progress
 - Study solution files to understand best practices
 
 Begin with **Concept 1** when ready to start hands-on XML prompting practice!
