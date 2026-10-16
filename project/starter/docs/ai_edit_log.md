@@ -57,23 +57,29 @@ For each AI interaction, create a new entry with the following structure:
 
 ## Your Log Entries
 
-### [Date] - [Brief Description]
+### 2026-10-16 - Phase 1: Flashcard Data Layer & Validation
 
-**Context:** 
+**Context:** Phase 1 of the project: build the system that loads flashcard decks from JSON, supports both deck formats, and reports bad data with a friendly message instead of a Python traceback.
 
-**AI Tool Used:** 
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
 
-**Prompt/Request:** 
+**Prompt/Request:** "The app must support JSON input in two formats: array [{"front":"..."},{"back":".."}] and wrapper object: {"cards":[...]}. Create a system to load and validate flashcard data. if json is malformed or missing fields the app must catch the error and print a friendly message. absolutely no raw python tracebacks"
 
-**AI Response:** 
+**AI Response:**
+- Pointed out that the array example in the prompt put `front` and `back` in two separate objects, while the spec and `data/glossary.json` keep both fields in the same object (`[{"front": "...", "back": "..."}]`). It implemented the spec version.
+- Created `utils/file_handler.py` with a frozen `Flashcard` dataclass, a `FlashcardLoadError` exception, `load_flashcards(path)` (file reading and JSON decoding) and `parse_flashcards(data)` (shape and field validation).
+- Each failure gets its own readable message: missing file, directory, permission or other OS error, non-UTF-8 file, malformed JSON (with line and column), wrong top-level type, missing `"cards"` key, empty deck, a card that isn't an object, a missing field, and an empty or non-text field. Messages give the 1-based card number.
+- Errors are re-raised with `from None`, so the original exception chain is not shown.
+- Created `tests/test_flashcard_loader.py` with the three required tests (`test_load_valid_flashcards_array`, `test_load_invalid_json`, `test_load_missing_required_field`) plus tests for the object format, both sample decks and every error branch.
+- The first run of the checks found a test line too long for black/flake8. The AI ran black and added tests for the permission and OS error branches. Final result: 31 tests passing, 100% coverage of `utils/file_handler.py`, and black, flake8 and mypy all clean.
 
-**Changes Made:** 
+**Changes Made:** _[To complete after your review: what you changed or asked to change in the generated code. Also note your view on the array-format correction.]_
 
-**Reasoning:** 
+**Reasoning:** _[Your words: why you made those changes.]_
 
-**Outcome:** 
+**Outcome:** _[Your words: the final state after your review.]_
 
-**Lessons Learned:** 
+**Lessons Learned:** _[Your words. Starting point: the example in the prompt contradicted the spec, so a precise example matters as much as the description.]_
 
 ---
 
