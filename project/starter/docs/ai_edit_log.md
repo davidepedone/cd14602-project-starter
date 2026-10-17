@@ -22,39 +22,6 @@ For each AI interaction, create a new entry with the following structure:
 
 ---
 
-## Example Entry
-
-> This entry shows the expected level of detail. It does **not** count toward your five required entries. Delete it before you submit.
-
-### 2024-01-15 - Flashcard Loader Validation
-
-**Context:** I needed a module that loads flashcards from a JSON file and rejects bad data with a clear message instead of a traceback.
-
-**AI Tool Used:** Claude Code
-
-**Prompt/Request:** "Create `data_loader.py` with a function that loads flashcards from a JSON file. Support both a plain list of `{"front", "back"}` objects and a `{"cards": [...]}` wrapper. Raise a custom exception with a helpful message if the file is missing, the JSON is malformed, or a card has no `back`. Use type hints."
-
-**AI Response:** Claude generated a `load_flashcards()` function and a `FlashcardLoadError` exception. It handled both JSON formats and a missing file, but it caught every exception with a bare `except:` and only checked for `front`.
-
-**Changes Made:** 
-- Replaced the bare `except:` with specific `FileNotFoundError` and `json.JSONDecodeError` handlers
-- Added validation that every card has non-empty `front` and `back` strings
-- Added the card's position to the error message so the user can find the bad entry
-
-**Reasoning:** 
-- A bare `except:` hides real bugs, including `KeyboardInterrupt`
-- A card without a `back` would break the quiz loop later, far from the cause
-- A message that names the bad card is far easier to act on
-
-**Outcome:** The loader now rejects bad decks with one readable line, and `test_load_missing_required_field` passes.
-
-**Lessons Learned:** 
-- AI covered the happy path well but under-specified the error handling
-- Naming the exact failure cases in the prompt produced better code than asking for "error handling"
-- Each requirement in the prompt should map to a test
-
----
-
 ## Your Log Entries
 
 ### 2026-10-16 - Phase 1: Flashcard Data Layer & Validation
@@ -77,13 +44,13 @@ For each AI interaction, create a new entry with the following structure:
 - 2026-10-17, after review: the AI had noted that duplicate `front` values were allowed. I asked it not to allow duplicate values. The loader now rejects a deck in which two cards share the same `front`, ignoring letter case and surrounding whitespace, with a message such as `Card 3 repeats the "front" of card 1: "API". Each question must be unique.` At first the AI kept duplicate `back` values allowed, reasoning that different questions can share an answer. I asked for duplicates to be rejected on `back` as well, so both fields must now be unique (`Each answer must be unique.`). If a card repeats both fields, the error reports the `front`. The same text may still appear as one card's `front` and another card's `back`.
 
 **Reasoning:** 
-- first version proposed by AI noted a potential issue with duplicates, so I've asked it to fix it. the fix was not complete so I had to give it another prompt.
+- The first version proposed by the AI pointed out a potential issue with duplicates, so I asked it to fix it. The fix was not complete, so I had to give it another prompt.
 
 **Outcome:**
-- phase 1 looks ok to me
+- Phase 1 looks OK to me.
 
 **Lessons Learned:**
-- I did a mistake in the prompt, AI noticed it and fix it for me luckily in the right way thanks to supporting file. I need to be more careful when prompting.
+- I made a mistake in the prompt. The AI noticed it and luckily fixed it the right way, thanks to the supporting files. I need to be more careful when prompting.
 
 ---
 
@@ -110,16 +77,16 @@ Before the prompt, the AI listed the decisions the brief leaves open (session en
 - Created `tests/test_quiz_modes.py` with the required `test_quiz_mode_factory` and `test_adaptive_mode_behavior`, plus tests for every mode, the retry gap, answer matching, stats and misuse (for example, asking for the next card before answering). 84 tests pass in total, `quiz_engine.py` has 100% coverage, and black, flake8 and mypy are clean. After the first run, the AI tightened one type hint (`Counter` to `Counter[str]`).
 
 **Changes Made:**
-- none, accepted the implementation for adaptive mode proposed by AI
+- None. I accepted the adaptive mode implementation proposed by the AI.
 
 **Reasoning:**
-- nothing to mention
+- Nothing to mention.
 
 **Outcome:**
-- phase 2 completed
+- Phase 2 completed.
 
 **Lessons Learned:**
-- prompt was slightly better than the first one but still needs more clarity
+- The prompt was slightly better than the first one, but it still needed more clarity.
 
 ---
 
@@ -151,17 +118,17 @@ Because the prompt said not to assume, the AI asked two rounds of questions befo
 - Results: 107 tests pass, total coverage (`--cov=.`) is 99%, and black, flake8 and mypy are clean. The AI also ran the real app: a full `-m adaptive -f data/python_basics.json` game (a missed card came back after two others), quitting with `exit`, a bad deck and an unknown mode. In its first manual run the AI guessed the deck's answers wrongly and input ran out mid-game. It said so and reran with the answers taken from the deck.
 
 **Changes Made:**
-- none. I've tested it on my machine and works as expected
+- None. I tested it on my machine and it works as expected.
 
 **Reasoning:**
-- I was impressed that AI did 2 mistakes but caught them and fixed
+- I was impressed that the AI made 2 mistakes but caught and fixed them itself.
 
 **Outcome:**
-- AI couldn't verify the color in terminal but phase 3 is done.
+- The AI couldn't verify the colors in the terminal, but Phase 3 is done.
 
 **Lessons Learned:**
-- the "ask, don't assume" turned the conversation in a more interactive mode allowing to address potential issues earlier
-- AI has limits, like the color testing. it goes without saying that I need to be extra careful when testing
+- "Ask, don't assume" made the conversation more interactive, so potential issues were addressed earlier.
+- The AI has limits, like testing the colors. It goes without saying that I need to be extra careful when testing.
 
 ---
 
@@ -190,16 +157,16 @@ Because the prompt said not to assume, the AI asked two rounds of questions befo
 - Open question raised by the AI: the brief says cards without a "Back" (capital B), but the loader only accepts lowercase keys. It asked whether `"Front"`/`"Back"` should also be accepted. After my answer (lowercase only), it added `test_load_field_names_are_lowercase_only`: a card with `"Back"`, `"BACK"` or `"Front"` is rejected with the usual "missing field" message, so the behaviour can't change by accident. 122 tests pass; the other checks are still clean.
 
 **Changes Made:**
-- asked AI to keep keys lowecase only
+- I asked the AI to keep keys lowercase only.
 
 **Reasoning:**
-- I didn't specifically asked about mutation testing but was awesome that it has been done by AI
+- I didn't specifically ask for mutation testing, but it was awesome that the AI did it.
 
 **Outcome:**
-- data loader testing complete
+- Data loader testing complete.
 
 **Lessons Learned:** 
-- A starting point: passing tests and 100% coverage didn't mean the required tests were strong. The mutation check showed what they would have missed.
+- Passing tests and 100% coverage didn't mean the required tests were strong. The mutation check showed what they would have missed.
 
 ---
 
@@ -222,16 +189,16 @@ Because the prompt said not to assume, the AI asked two rounds of questions befo
 - Final result: the two required tests catch **18 of 18** mutations. 124 tests pass, total coverage is 99%, and black, flake8 and mypy are clean. An unused `ANSWERS` constant was removed. `utils/quiz_engine.py` was not changed.
 
 **Changes Made:**
-- none
+- None.
 
 **Reasoning:**
-- nothing to mention
+- Nothing to mention.
 
 **Outcome:**
-- quiz engine testing complete
+- Quiz engine testing complete.
 
 **Lessons Learned:** 
-- a mutation score only means something if the tests pass on the real code first.
+- A mutation score only means something if the tests pass on the real code first.
 
 ---
 
@@ -255,16 +222,16 @@ Because the prompt said not to assume, the AI asked two rounds of questions befo
 - Final result: the tests together catch **19 of 19**. The required test alone catches 17; the two others (distinct-missed-cards counting and the summary without `--stats`) can't be caught by any 3-question game with `--stats`, so the companion tests cover them. 129 tests pass, total coverage is 99%, and black, flake8 and mypy are clean. `main.py` and `utils/quiz_engine.py` were not changed.
 
 **Changes Made:**
-- none
+- None.
 
 **Reasoning:**
-- nothing to mention
+- Nothing to mention.
 
 **Outcome:**
-- testing completed
+- Testing completed.
 
 **Lessons Learned:**
-- nothing new compared to previous 2 steps regarding testing
+- Nothing new about testing compared to the previous 2 steps.
 
 ---
 
@@ -289,13 +256,13 @@ Because the prompt said not to assume, the AI asked two rounds of questions befo
 - I decided not to apply any of the options. Coverage stays at 99%, above the 80% target, and the code was not changed.
 
 **Reasoning:**
-- as pointed out by AI 100% doesn't mean that all bugs are catched
+- As the AI pointed out, 100% coverage doesn't mean that all bugs are caught.
 
 **Outcome:**
-- no changes
+- No changes.
 
 **Lessons Learned:**
-- great reasoning skills proven by AI
+- The AI showed great reasoning skills.
 
 ---
 
@@ -361,9 +328,9 @@ As you work through the project, consider these questions:
 
 At the end of your project, fill out these statistics:
 
-- **Total AI interactions:** ___
-- **Lines of AI-generated code used:** ___
-- **Lines of AI-generated code modified:** ___
+- **Total AI interactions:** 7 logged above
+- **Lines of AI-generated code used:** 1,674 (599 in `main.py` and `utils/`, 1,075 in `tests/`)
+- **Lines of AI-generated code modified:** 0 by hand. All changes were made through follow-up prompts (duplicates on `front` and then `back`, lowercase-only keys)
 - **Most helpful AI interaction:** ___
 - **Most challenging AI interaction:** ___
 - **Biggest lesson learned:** ___
