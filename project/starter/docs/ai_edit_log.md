@@ -73,13 +73,17 @@ For each AI interaction, create a new entry with the following structure:
 - Created `tests/test_flashcard_loader.py` with the three required tests (`test_load_valid_flashcards_array`, `test_load_invalid_json`, `test_load_missing_required_field`) plus tests for the object format, both sample decks and every error branch.
 - The first run of the checks found a test line too long for black/flake8. The AI ran black and added tests for the permission and OS error branches. Final result: 31 tests passing, 100% coverage of `utils/file_handler.py`, and black, flake8 and mypy all clean.
 
-**Changes Made:** _[To complete after your review: what you changed or asked to change in the generated code. Also note your view on the array-format correction.]_
+**Changes Made:**
+- 2026-10-17, after review: the AI had noted that duplicate `front` values were allowed. I asked it not to allow duplicate values. The loader now rejects a deck in which two cards share the same `front`, ignoring letter case and surrounding whitespace, with a message such as `Card 3 repeats the "front" of card 1: "API". Each question must be unique.` At first the AI kept duplicate `back` values allowed, reasoning that different questions can share an answer. I asked for duplicates to be rejected on `back` as well, so both fields must now be unique (`Each answer must be unique.`). If a card repeats both fields, the error reports the `front`. The same text may still appear as one card's `front` and another card's `back`.
 
-**Reasoning:** _[Your words: why you made those changes.]_
+**Reasoning:** 
+- first version proposed by AI noted a potential issue with duplicates, so I've asked it to fix it. the fix was not complete so I had to give it another prompt.
 
-**Outcome:** _[Your words: the final state after your review.]_
+**Outcome:**
+- phase 1 looks ok to me
 
-**Lessons Learned:** _[Your words. Starting point: the example in the prompt contradicted the spec, so a precise example matters as much as the description.]_
+**Lessons Learned:**
+- I did a mistake in the prompt, AI noticed it and fix it for me luckily in the right way thanks to supporting file. I need to be more careful when prompting.
 
 ---
 

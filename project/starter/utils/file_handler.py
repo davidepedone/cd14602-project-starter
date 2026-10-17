@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Union
+from typing import Any, Dict, List, Union
 
 REQUIRED_FIELDS = ("front", "back")
 
@@ -108,7 +108,11 @@ def parse_flashcards(data: Any) -> List[Flashcard]:
     if not cards:
         raise FlashcardLoadError("The deck contains no cards.")
 
-    return [_parse_card(card, number) for number, card in enumerate(cards, start=1)]
+    flashcards = [
+        _parse_card(card, number) for number, card in enumerate(cards, start=1)
+    ]
+    _reject_duplicates(flashcards)
+    return flashcards
 
 
 def _parse_card(card: Any, number: int) -> Flashcard:
@@ -130,3 +134,18 @@ def _parse_card(card: Any, number: int) -> Flashcard:
         values[field] = value.strip()
 
     return Flashcard(front=values["front"], back=values["back"])
+
+
+def _reject_duplicates(flashcards: List[Flashcard]) -> None:
+    """Raise if two cards share a front or a back, ignoring letter case."""
+    for field, noun in (("front", "question"), ("back", "answer")):
+        first_seen: Dict[str, int] = {}
+        for number, card in enumerate(flashcards, start=1):
+            value = getattr(card, field)
+            key = value.casefold()
+            if key in first_seen:
+                raise FlashcardLoadError(
+                    f'Card {number} repeats the "{field}" of card '
+                    f'{first_seen[key]}: "{value}". Each {noun} must be unique.'
+                )
+            first_seen[key] = number

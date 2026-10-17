@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List
 
 import pytest
 
@@ -182,6 +182,62 @@ def test_errors_hide_the_original_traceback(tmp_path: Path) -> None:
 def test_parse_rejects_invalid_decks(data: Any, message: str) -> None:
     with pytest.raises(FlashcardLoadError, match=message):
         parse_flashcards(data)
+
+
+@pytest.mark.parametrize("field", ["front", "back"])
+@pytest.mark.parametrize(
+    "values",
+    [
+        ["API", "API"],
+        ["API", "api"],
+        ["API", "  API  "],
+        ["API", "CPU", "Api"],
+    ],
+)
+def test_parse_rejects_duplicate_values(field: str, values: List[str]) -> None:
+    other = "back" if field == "front" else "front"
+    cards = [{field: value, other: f"unique {i}"} for i, value in enumerate(values)]
+
+    with pytest.raises(
+        FlashcardLoadError,
+        match=f'Card {len(values)} repeats the "{field}" of card 1',
+    ):
+        parse_flashcards(cards)
+
+
+@pytest.mark.parametrize(
+    ("cards", "message"),
+    [
+        (
+            [{"front": "Q", "back": "A"}, {"front": "Q", "back": "B"}],
+            "Each question must be unique",
+        ),
+        (
+            [{"front": "Q1", "back": "A"}, {"front": "Q2", "back": "A"}],
+            "Each answer must be unique",
+        ),
+    ],
+)
+def test_load_rejects_duplicates_in_object_format(
+    tmp_path: Path, cards: List[Dict[str, str]], message: str
+) -> None:
+    path = write_json(tmp_path, {"cards": cards})
+
+    with pytest.raises(FlashcardLoadError, match=message):
+        load_flashcards(path)
+
+
+def test_parse_reports_duplicate_front_before_back() -> None:
+    cards = [{"front": "Q", "back": "A"}, {"front": "Q", "back": "A"}]
+
+    with pytest.raises(FlashcardLoadError, match='repeats the "front"'):
+        parse_flashcards(cards)
+
+
+def test_parse_allows_same_text_as_front_and_back() -> None:
+    cards = [{"front": "echo", "back": "x"}, {"front": "y", "back": "echo"}]
+
+    assert len(parse_flashcards(cards)) == 2
 
 
 def test_flashcard_is_immutable() -> None:
