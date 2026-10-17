@@ -123,6 +123,48 @@ Before the prompt, the AI listed the decisions the brief leaves open (session en
 
 ---
 
+### 2026-10-17 - Phase 3: Command-Line Interface
+
+**Context:** Phase 3 of the project: build the user interface in `main.py`, on top of the Phase 1 loader and the Phase 2 quiz engine.
+
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
+
+**Prompt/Request:** "let's move to phase 3 where we need to build the UI. here are the requirements: 1. use argparse to hangle flags like -f (file), -m (mode), and --stats. 2. Display text colors (Green for correct, Red for incorrect). 3. Allow the user to type "exit" or press Ctrl+C to quit gracefully without errors. if you have doubt ask and do not just assume"
+
+Because the prompt said not to assume, the AI asked two rounds of questions before writing code. My answers:
+- `--stats`: always show a one-line score at the end; `--stats` adds a detailed summary
+- Defaults: both flags have defaults (`-f data/python_basics.json`, `-m sequential`)
+- On quit: I wrote my own answer instead of the offered options: "goodbye and say that it's a pity to abandon game". In the follow-up round I confirmed: only the goodbye message, no stats
+- Wrong answers: show the correct answer in red
+- Colors: off when the output isn't a terminal or `NO_COLOR` is set
+- Quitting: `exit` ignores case and spaces, and Ctrl+D also quits (I didn't select the `quit` alias)
+
+**AI Response:**
+- Noted the one case my answers didn't settle, a blank answer, and said it would count as wrong unless I preferred re-asking.
+- Wrote `main.py` (CLI only; no quiz logic):
+  - argparse with `-f/--file`, `-m/--mode` (choices taken from the engine's registry, case-insensitive) and `--stats`
+  - a green `✓ Correct!` and a red `✗ Incorrect. The answer is: ...`
+  - `exit`, Ctrl+C and Ctrl+D all print `Goodbye! It's a pity to abandon the game.` and exit with code 0. Ctrl+C is also handled outside a prompt, for example while a deck is loading
+  - deck errors are printed as `Error: ...` on stderr with exit code 1 and no traceback
+- Wrote `tests/test_integration.py` with the required `test_full_session` (3 answers, 2 correct and 1 wrong, checking the final stats), plus tests for a full adaptive game on the default deck, each way of quitting, error messages, `--help`, colors on and off, and one test that runs `main.py` as a real process.
+- Mistake caught: one test passed `retry_gap` to the factory, which doesn't accept it. The AI noticed while reviewing its own code, before running the tests, and simplified the test.
+- Results: 107 tests pass, total coverage (`--cov=.`) is 99%, and black, flake8 and mypy are clean. The AI also ran the real app: a full `-m adaptive -f data/python_basics.json` game (a missed card came back after two others), quitting with `exit`, a bad deck and an unknown mode. In its first manual run the AI guessed the deck's answers wrongly and input ran out mid-game. It said so and reran with the answers taken from the deck.
+
+**Changes Made:**
+- none. I've tested it on my machine and works as expected
+
+**Reasoning:**
+- I was impressed that AI did 2 mistakes but caught them and fixed
+
+**Outcome:**
+- AI couldn't verify the color in terminal but phase 3 is done.
+
+**Lessons Learned:**
+- the "ask, don't assume" turned the conversation in a more interactive mode allowing to address potential issues earlier
+- AI has limits, like the color testing. it goes without saying that I need to be extra careful when testing
+
+---
+
 ## Tips for Effective AI Collaboration
 
 ### 1. Be Specific in Your Requests
