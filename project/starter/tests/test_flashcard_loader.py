@@ -31,26 +31,133 @@ def write_json(tmp_path: Path, data: Any, name: str = "deck.json") -> Path:
 def test_load_valid_flashcards_array(tmp_path: Path) -> None:
     path = write_json(
         tmp_path,
-        [{"front": "API", "back": "Application Programming Interface"}],
+        [
+            {"front": "API", "back": "Application Programming Interface"},
+            {"front": "CPU", "back": "Central Processing Unit"},
+            {"front": "DNS", "back": "Domain Name System"},
+        ],
     )
 
-    assert load_flashcards(path) == [
-        Flashcard(front="API", back="Application Programming Interface")
+    cards = load_flashcards(path)
+
+    # Every card is read, in file order, as a Flashcard with both fields.
+    assert cards == [
+        Flashcard(front="API", back="Application Programming Interface"),
+        Flashcard(front="CPU", back="Central Processing Unit"),
+        Flashcard(front="DNS", back="Domain Name System"),
+    ]
+    assert all(type(card) is Flashcard for card in cards)
+
+
+def test_load_valid_flashcards_array_sample_deck() -> None:
+    raw = json.loads((DATA_DIR / "glossary.json").read_text(encoding="utf-8"))
+    assert isinstance(raw, list), "glossary.json should stay in array format"
+
+    cards = load_flashcards(DATA_DIR / "glossary.json")
+
+    assert [(card.front, card.back) for card in cards] == [
+        (item["front"], item["back"]) for item in raw
     ]
 
 
-def test_load_invalid_json(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "text",
+    [
+        pytest.param('[{"front": "API", "back": }]', id="missing-value"),
+        pytest.param('[{"front": "API", "back": "x"},]', id="trailing-comma"),
+        pytest.param('[{"front": "API", "back": "x"}', id="unclosed-bracket"),
+        pytest.param("[{'front': 'API', 'back': 'x'}]", id="single-quotes"),
+        pytest.param('[{front: "API", back: "x"}]', id="unquoted-keys"),
+        pytest.param('[{"front": "API" "back": "x"}]', id="missing-comma"),
+        pytest.param("front,back\nAPI,x", id="not-json-at-all"),
+    ],
+)
+def test_load_invalid_json(tmp_path: Path, text: str) -> None:
     path = tmp_path / "broken.json"
-    path.write_text('[{"front": "API", "back": }]', encoding="utf-8")
+    path.write_text(text, encoding="utf-8")
 
-    with pytest.raises(FlashcardLoadError, match="not valid JSON.*line 1"):
+    with pytest.raises(FlashcardLoadError) as excinfo:
+        load_flashcards(path)
+
+    # Graceful: our own error type, a one-line message naming the file and
+    # position, and no chained JSONDecodeError traceback.
+    error = excinfo.value
+    assert not isinstance(error, json.JSONDecodeError)
+    assert str(path) in str(error)
+    assert "is not valid JSON" in str(error)
+    assert "line" in str(error) and "column" in str(error)
+    assert "\n" not in str(error)
+    assert error.__cause__ is None and error.__suppress_context__
+
+
+def test_load_invalid_json_reports_the_right_line(tmp_path: Path) -> None:
+    path = tmp_path / "broken.json"
+    path.write_text(
+        '[\n  {"front": "API", "back": "x"},\n  {"front": "CPU", "back": }\n]',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(FlashcardLoadError, match=r"\(line 3, column 28\)"):
         load_flashcards(path)
 
 
-def test_load_missing_required_field(tmp_path: Path) -> None:
-    path = write_json(tmp_path, [{"front": "API"}])
+@pytest.mark.parametrize(
+    ("data", "card_number"),
+    [
+        pytest.param([{"front": "API"}], 1, id="array-only-card"),
+        pytest.param(
+            [
+                {"front": "API", "back": "x"},
+                {"front": "CPU", "back": "y"},
+                {"front": "DNS"},
+            ],
+            3,
+            id="array-last-card",
+        ),
+        pytest.param(
+            {"cards": [{"front": "API", "back": "x"}, {"front": "CPU"}]},
+            2,
+            id="object-format",
+        ),
+        pytest.param(
+            [
+                {"front": "API", "back": "x", "answer": "y"},
+                {"front": "CPU", "hint": "z"},
+            ],
+            2,
+            id="other-keys-do-not-count",
+        ),
+    ],
+)
+def test_load_missing_required_field(
+    tmp_path: Path, data: Any, card_number: int
+) -> None:
+    path = write_json(tmp_path, data)
 
-    with pytest.raises(FlashcardLoadError, match='Card 1 is missing the "back"'):
+    with pytest.raises(
+        FlashcardLoadError,
+        match=f'^Card {card_number} is missing the "back" field\\.$',
+    ):
+        load_flashcards(path)
+
+
+@pytest.mark.parametrize(
+    ("card", "missing"),
+    [
+        pytest.param({"front": "Q", "Back": "A"}, "back", id="Back"),
+        pytest.param({"front": "Q", "BACK": "A"}, "back", id="BACK"),
+        pytest.param({"Front": "Q", "back": "A"}, "front", id="Front"),
+        pytest.param({"Front": "Q", "Back": "A"}, "front", id="Front-and-Back"),
+    ],
+)
+def test_load_field_names_are_lowercase_only(
+    tmp_path: Path, card: Dict[str, str], missing: str
+) -> None:
+    path = write_json(tmp_path, [card])
+
+    with pytest.raises(
+        FlashcardLoadError, match=f'^Card 1 is missing the "{missing}" field\\.$'
+    ):
         load_flashcards(path)
 
 

@@ -23,25 +23,31 @@ from utils.quiz_engine import (
 )
 
 CARDS = [Flashcard(front=f"Q{i}", back=f"A{i}") for i in range(1, 6)]
-ANSWERS: Dict[str, str] = {card.front: card.back for card in CARDS}
+
+
+MAX_STEPS = 100
+
+
+def play_script(mode: QuizMode, script: Dict[str, List[str]]) -> List[str]:
+    """Run a whole session and return the fronts in the order they were asked.
+
+    ``script`` maps a card's front to the answers to give, in order, each time
+    that card comes up; once a card's list runs out it is answered correctly.
+    Fails instead of hanging if the session never ends.
+    """
+    pending = {front: list(answers) for front, answers in script.items()}
+    asked: List[str] = []
+    while (card := mode.next_card()) is not None:
+        assert len(asked) < MAX_STEPS, f"session did not end: {asked[:20]}..."
+        asked.append(card.front)
+        answers = pending.get(card.front)
+        mode.submit_answer(answers.pop(0) if answers else card.back)
+    return asked
 
 
 def play(mode: QuizMode, wrong_once: frozenset = frozenset()) -> List[str]:
-    """Run a whole session and return the fronts in the order they were asked.
-
-    Cards in ``wrong_once`` are answered wrong the first time they appear and
-    correctly afterwards.
-    """
-    asked: List[str] = []
-    missed: set = set()
-    while (card := mode.next_card()) is not None:
-        asked.append(card.front)
-        if card.front in wrong_once and card.front not in missed:
-            missed.add(card.front)
-            mode.submit_answer("wrong")
-        else:
-            mode.submit_answer(ANSWERS[card.front])
-    return asked
+    """Run a session where cards in ``wrong_once`` are missed the first time."""
+    return play_script(mode, {front: ["wrong"] for front in wrong_once})
 
 
 # Required scenarios from the project specification
@@ -53,24 +59,64 @@ def play(mode: QuizMode, wrong_once: frozenset = frozenset()) -> List[str]:
         ("sequential", SequentialMode),
         ("random", RandomMode),
         ("adaptive", AdaptiveMode),
+        ("Adaptive", AdaptiveMode),
+        (" RANDOM ", RandomMode),
     ],
 )
 def test_quiz_mode_factory(name: str, expected: Type[QuizMode]) -> None:
-    mode = create_quiz_mode(name, CARDS)
+    deck = [Flashcard(front=f"Q{i}", back=f"A{i}") for i in range(1, 11)]
 
+    mode = create_quiz_mode(name, deck, rng=random.Random(42))
+    again = create_quiz_mode(name, deck, rng=random.Random(42))
+
+    # The exact class, not just any QuizMode (a subclass would also pass
+    # isinstance), and a fresh session on every call.
     assert type(mode) is expected
     assert isinstance(mode, QuizMode)
+    assert mode is not again
+
+    # Built with the deck and rng it was given: it plays exactly like the
+    # class constructed directly with the same arguments.
+    direct = expected(deck, rng=random.Random(42))
+    assert play(mode) == play(direct)
+    assert play(again) == play(expected(deck, rng=random.Random(42)))
 
 
 def test_adaptive_mode_behavior() -> None:
-    mode = AdaptiveMode(CARDS)
+    mode = AdaptiveMode(CARDS)  # default retry gap: 2 other cards
 
-    asked = play(mode, wrong_once=frozenset({"Q1"}))
+    asked = play_script(
+        mode,
+        {
+            "Q2": ["wrong", "still wrong"],  # missed twice, from the middle
+            "Q3": ["  a3 "],  # right answer with odd case and spacing
+            "Q5": ["wrong", "wrong"],  # the last card, missed twice
+        },
+    )
 
-    # Q1 is missed, then returns after two other cards instead of at the end.
-    assert asked == ["Q1", "Q2", "Q3", "Q1", "Q4", "Q5"]
-    assert mode.stats.mistakes == {"Q1": 1}
+    assert asked == [
+        "Q1",
+        "Q2",  # missed -> comes back after Q3 and Q4
+        "Q3",  # correct despite the spacing, so it is not repeated
+        "Q4",
+        "Q2",  # missed again -> fewer than 2 cards left, goes after Q5
+        "Q5",  # missed -> goes after Q2
+        "Q2",  # correct at last
+        "Q5",  # missed again while it is the only card left -> asked again
+        "Q5",  # correct
+    ]
+    # Each missed card is asked once more per miss, and only missed cards repeat.
+    assert {front: asked.count(front) - 1 for front in set(asked)} == {
+        "Q1": 0,
+        "Q2": 2,
+        "Q3": 0,
+        "Q4": 0,
+        "Q5": 2,
+    }
+    assert mode.stats.mistakes == {"Q2": 2, "Q5": 2}
+    assert (mode.stats.correct, mode.stats.incorrect) == (5, 4)
     assert mode.is_finished
+    assert mode.next_card() is None
 
 
 # Factory

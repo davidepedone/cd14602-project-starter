@@ -165,6 +165,140 @@ Because the prompt said not to assume, the AI asked two rounds of questions befo
 
 ---
 
+### 2026-10-17 - QA: Strengthening the Required Data Loader Tests
+
+**Context:** Start of the QA phase. The three required loader tests already existed from Phase 1, so the goal was to check whether they really prove what their names claim.
+
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
+
+**Prompt/Request:** "I've commited phase 3. now we need to move forward and focus on QA. let's start with data loader (test_flashcard_loader.py). here some important thing to cover: test_load_valid_flashcards_array: Does it load a list correctly?, test_load_invalid_json: Does it gracefully handle bad syntax?, test_load_missing_required_field: Does it reject cards without a "Back"?"
+
+**AI Response:**
+- Reviewed the existing tests and listed their gaps:
+  - the array test used a single card, so it couldn't show that order is kept or every card is read
+  - the invalid-JSON test covered only one kind of syntax error and didn't check that the error was free of the raw `JSONDecodeError` traceback
+  - the missing-field test covered only card 1 of an array
+- Rewrote the three tests in `tests/test_flashcard_loader.py`:
+  - `test_load_valid_flashcards_array`: 3 cards, checking exact content, order and type. A companion test loads the real `data/glossary.json` and compares it with the raw file.
+  - `test_load_invalid_json`: 7 kinds of bad syntax (missing value, trailing comma, unclosed bracket, single quotes, unquoted keys, missing comma, CSV instead of JSON). Each checks for our own error type, a one-line message with the file name, line and column, and no chained traceback. A companion test checks that the line and column are right in a file with several lines.
+  - `test_load_missing_required_field`: `back` missing from the only card, from the last card of an array, and from the object format, and in a card where other keys (`answer`, `hint`) don't replace `back`. The message must name the right card.
+- Mistake caught: the line/column test first failed because the AI miscounted the column (it expected 29; the right value is 28). The loader was correct, and the AI fixed the test.
+- Mutation check: the AI broke `file_handler.py` in 7 ways, one at a time, and ran only the three required tests, then restored the file (verified identical to the commit).
+  - new tests: all 7 mutations caught
+  - old tests: 3 missed: keeping only the first card, reversing card order, and showing the chained traceback. Two of those were caught elsewhere in the suite, but not by the required tests.
+- Results: 118 tests pass, total coverage is 99%, and black, flake8 and mypy are clean. `file_handler.py` was not changed.
+- Open question raised by the AI: the brief says cards without a "Back" (capital B), but the loader only accepts lowercase keys. It asked whether `"Front"`/`"Back"` should also be accepted. After my answer (lowercase only), it added `test_load_field_names_are_lowercase_only`: a card with `"Back"`, `"BACK"` or `"Front"` is rejected with the usual "missing field" message, so the behaviour can't change by accident. 122 tests pass; the other checks are still clean.
+
+**Changes Made:**
+- asked AI to keep keys lowecase only
+
+**Reasoning:**
+- I didn't specifically asked about mutation testing but was awesome that it has been done by AI
+
+**Outcome:**
+- data loader testing complete
+
+**Lessons Learned:** 
+- A starting point: passing tests and 100% coverage didn't mean the required tests were strong. The mutation check showed what they would have missed.
+
+---
+
+### 2026-10-17 - QA: Mutation Testing the Quiz Logic Tests
+
+**Context:** Second QA step: the two required quiz engine tests in `tests/test_quiz_modes.py`, using mutation testing to find the edge cases they miss.
+
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
+
+**Prompt/Request:** "let's move to quiz logic testing, focusing in particular on: test_quiz_mode_factory: Does the factory return the correct class object? test_adaptive_mode_behavior: Does it actually repeat incorrect questions? use mutation to catch edge cases"
+
+**AI Response:**
+- Wrote a mutation runner (a scratch script, not part of the project) with 18 mutations of `utils/quiz_engine.py`: 6 in the factory, 12 in adaptive mode and answer checking. Each run had a 20-second timeout, because some mutations make a session never end. The original file was restored after every run and checked to be identical to the commit.
+- Baseline, before changing any test: the two required tests caught only **10 of 18** mutations. They missed: the factory dropping the `rng`, passing only the first card, reusing one instance across calls, and becoming case-sensitive; and in adaptive mode, repeating a card only after its first miss, never repeating the last remaining card, exact-match answer checking, and re-queuing a different card. One mutation (re-queuing *correct* answers) was caught only by the timeout.
+- Rewrote the two tests:
+  - `test_quiz_mode_factory`: also tests mixed-case names (`"Adaptive"`, `" RANDOM "`). It checks the exact class (`type(...) is`, since a subclass would pass `isinstance`), that each call returns a new object, and that the mode plays exactly like the class built directly with the same 10-card deck and seeded `rng`.
+  - `test_adaptive_mode_behavior`: one scripted session with a middle card missed twice, the last card missed twice (including while it is the only card left), and one correct answer typed with odd case and spacing. It checks the exact order of questions, that only missed cards repeat (once per miss), the stats, and that the session ends.
+  - The session helper now fails with a clear message after 100 questions instead of hanging.
+- Mistake caught: the first rerun reported 18/18, but the new tests were failing on the *unmodified* code. The helper looked up answers in a table that only had `Q1`-`Q5`, while the factory test used 10 cards. A test that always fails "catches" every mutation, so the AI flagged the 18/18 as meaningless, fixed the helper (answer with each card's own `back`), and added a guard to the runner: it now refuses to start unless the tests pass on the original code.
+- Final result: the two required tests catch **18 of 18** mutations. 124 tests pass, total coverage is 99%, and black, flake8 and mypy are clean. An unused `ANSWERS` constant was removed. `utils/quiz_engine.py` was not changed.
+
+**Changes Made:**
+- none
+
+**Reasoning:**
+- nothing to mention
+
+**Outcome:**
+- quiz engine testing complete
+
+**Lessons Learned:** 
+- a mutation score only means something if the tests pass on the real code first.
+
+---
+
+### 2026-10-17 - QA: Mutation Testing the Full-Session Integration Test
+
+**Context:** Third QA step: the required integration test `test_full_session` in `tests/test_integration.py`, which simulates a user answering 3 questions and checks the final stats.
+
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
+
+**Prompt/Request:** "now integration test: test_full_session: Simulate a user answering 3 questions and checking the final stats calculation."
+
+**AI Response:**
+- Applied the same mutation approach as for the quiz logic. It made the runner work on any file, kept the guard that refuses to run if the tests fail on the original code, and wrote 19 mutations: 6 in the stats calculation (`QuizStats`), 7 in how stats are displayed, and 6 in the session flow (`main.py`). Source files were restored after every run and checked to be identical to the commit.
+- Baseline: the existing test caught **15 of 19**. It missed correct answers also being counted as mistakes, "Answers given" counting distinct missed cards instead of answers, the summary appearing without `--stats`, and questions numbered from 0. It also checked only printed text, never the calculated numbers.
+- Rewrote `test_full_session`, still a 3-question game (right, wrong, and right with odd spacing):
+  - it reads the engine's `QuizStats` through a spy on the factory: correct, incorrect, total, accuracy and mistakes;
+  - it checks that exactly 3 answers were read;
+  - it checks the questions and the feedback, line by line and in order;
+  - it compares the whole final summary character for character.
+- Added three companion tests for cases a 3-question game with `--stats` can't cover: no `--stats` (score only), an adaptive game where one card is missed twice (5 answers, 60.0%, "(2 times)"), and rounding at 100%, 33.3% and 0%.
+- Final result: the tests together catch **19 of 19**. The required test alone catches 17; the two others (distinct-missed-cards counting and the summary without `--stats`) can't be caught by any 3-question game with `--stats`, so the companion tests cover them. 129 tests pass, total coverage is 99%, and black, flake8 and mypy are clean. `main.py` and `utils/quiz_engine.py` were not changed.
+
+**Changes Made:**
+- none
+
+**Reasoning:**
+- nothing to mention
+
+**Outcome:**
+- testing completed
+
+**Lessons Learned:**
+- nothing new compared to previous 2 steps regarding testing
+
+---
+
+### 2026-10-17 - QA: Options for Reaching 100% Coverage
+
+**Context:** After the QA steps, total coverage was 99%. I wanted to know what it would take to reach 100%.
+
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
+
+**Prompt/Request:** "what can we do to reach 100% coverage?"
+
+**AI Response:**
+- Ran coverage with `--cov-report=term-missing`. The only uncovered line is `main.py:199`, `sys.exit(main())` inside `if __name__ == "__main__":`. A test already runs `main.py` as a real process, but coverage doesn't measure a separate process by default.
+- Proposed three options:
+  1. (recommended) A test that runs `main.py` inside the test process with `runpy.run_path(..., run_name="__main__")`, which would also check that exit codes 0, 1 and 2 reach the operating system.
+  2. Measure subprocesses with `[run] patch = subprocess` in a `.coveragerc` (supported by coverage 7.10.7).
+  3. Exclude the line with `# pragma: no cover` or an `exclude_also` rule, which hides the line rather than testing it.
+- Pointed out that `--cov=.` also measures `tests/`, which pushes the total up; the app code alone (`main.py` and `utils/`) is also at 99%.
+- Pointed out that 100% coverage doesn't prove the tests catch bugs: the loader tests had 100% coverage and still missed 3 of 7 deliberate bugs in the mutation check.
+
+**Changes Made:**
+- I decided not to apply any of the options. Coverage stays at 99%, above the 80% target, and the code was not changed.
+
+**Reasoning:**
+- as pointed out by AI 100% doesn't mean that all bugs are catched
+
+**Outcome:**
+- no changes
+
+**Lessons Learned:**
+- great reasoning skills proven by AI
+
+---
+
 ## Tips for Effective AI Collaboration
 
 ### 1. Be Specific in Your Requests

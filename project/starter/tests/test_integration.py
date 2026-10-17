@@ -7,13 +7,13 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Callable, Iterable, List
+from typing import Any, Callable, Iterable, List
 
 import pytest
 
 import main
 from utils.file_handler import Flashcard
-from utils.quiz_engine import QuizStats, SequentialMode
+from utils.quiz_engine import QuizMode, QuizStats, SequentialMode
 
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 THREE_CARDS = [
@@ -73,21 +73,127 @@ def run_main(args: List[str], answers: Iterable[str]) -> tuple:
 # Required scenario from the project specification
 
 
-def test_full_session(deck: Path) -> None:
-    code, output, _ = run_main(
+def spy_on_sessions(monkeypatch: pytest.MonkeyPatch) -> List[QuizMode]:
+    """Record every QuizMode that main() creates, to inspect its stats later."""
+    sessions: List[QuizMode] = []
+    real_factory = main.create_quiz_mode
+
+    def spy(*args: Any, **kwargs: Any) -> QuizMode:
+        mode = real_factory(*args, **kwargs)
+        sessions.append(mode)
+        return mode
+
+    monkeypatch.setattr(main, "create_quiz_mode", spy)
+    return sessions
+
+
+def lines_starting_with(output: str, *prefixes: str) -> List[str]:
+    return [line for line in output.splitlines() if line.startswith(prefixes)]
+
+
+def test_full_session(deck: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sessions = spy_on_sessions(monkeypatch)
+    prompts: List[str] = []
+    answers = iter(["def", "int", "  FOR "])  # right, wrong, right (odd spacing)
+
+    def user(prompt: str) -> str:
+        prompts.append(prompt)
+        return next(answers)
+
+    out = io.StringIO()
+    code = main.main(
         ["-f", str(deck), "-m", "sequential", "--stats"],
-        ["def", "int", "FOR"],
+        input_func=user,
+        out=out,
+        err=io.StringIO(),
+    )
+    output = out.getvalue()
+
+    assert code == 0
+    assert len(prompts) == 3, "the user should be asked exactly 3 questions"
+
+    # The stats the engine calculated.
+    (session,) = sessions
+    stats = session.stats
+    assert (stats.correct, stats.incorrect, stats.total) == (2, 1, 3)
+    assert stats.accuracy == pytest.approx(200 / 3)
+    assert dict(stats.mistakes) == {"What is the boolean type called?": 1}
+
+    # What the user saw, question by question.
+    assert lines_starting_with(output, "Question ") == [
+        "Question 1: Which keyword defines a function?",
+        "Question 2: What is the boolean type called?",
+        "Question 3: Which keyword starts a loop?",
+    ]
+    assert lines_starting_with(output, "✓", "✗") == [
+        "✓ Correct!",
+        "✗ Incorrect. The answer is: bool",
+        "✓ Correct!",
+    ]
+
+    # The final stats, exactly as printed.
+    assert output.endswith(
+        "\nScore: 2/3 correct (66.7%)\n"
+        "--- Quiz statistics ---\n"
+        "Answers given: 3\n"
+        "Correct:       2\n"
+        "Incorrect:     1\n"
+        "Accuracy:      66.7%\n"
+        "Most missed:\n"
+        "  What is the boolean type called? (1 time)\n"
+    )
+
+
+def test_full_session_without_stats_flag_shows_only_the_score(deck: Path) -> None:
+    code, output, _ = run_main(["-f", str(deck)], ["def", "int", "for"])
+
+    assert code == 0
+    assert output.endswith("\nScore: 2/3 correct (66.7%)\n")
+    assert "Quiz statistics" not in output
+
+
+def test_full_session_adaptive_counts_every_answer(
+    deck: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sessions = spy_on_sessions(monkeypatch)
+
+    # The bool card is missed twice, so 3 cards take 5 answers.
+    code, output, _ = run_main(
+        ["-f", str(deck), "-m", "adaptive", "--stats"],
+        ["def", "int", "for", "str", "bool"],
     )
 
     assert code == 0
-    assert output.count("✓ Correct!") == 2
-    assert "✗ Incorrect. The answer is: bool" in output
-    assert "Score: 2/3 correct (66.7%)" in output
-    assert "Answers given: 3" in output
-    assert "Correct:       2" in output
-    assert "Incorrect:     1" in output
-    assert "Accuracy:      66.7%" in output
-    assert "What is the boolean type called? (1 time)" in output
+    (session,) = sessions
+    assert (session.stats.correct, session.stats.incorrect) == (3, 2)
+    assert output.endswith(
+        "\nScore: 3/5 correct (60.0%)\n"
+        "--- Quiz statistics ---\n"
+        "Answers given: 5\n"
+        "Correct:       3\n"
+        "Incorrect:     2\n"
+        "Accuracy:      60.0%\n"
+        "Most missed:\n"
+        "  What is the boolean type called? (2 times)\n"
+    )
+
+
+@pytest.mark.parametrize(
+    ("answers", "score", "most_missed"),
+    [
+        (["def", "bool", "for"], "3/3 correct (100.0%)", "Most missed:   none"),
+        (["def", "x", "x"], "1/3 correct (33.3%)", "Most missed:\n"),
+        (["x", "x", "x"], "0/3 correct (0.0%)", "Most missed:\n"),
+    ],
+)
+def test_full_session_score_rounding(
+    deck: Path, answers: List[str], score: str, most_missed: str
+) -> None:
+    _, output, _ = run_main(["-f", str(deck), "--stats"], answers)
+
+    assert f"\nScore: {score}\n" in output
+    assert f"Accuracy:      {score.split('(')[1].rstrip(')')}\n" in output
+    assert most_missed in output
 
 
 # Full games through main()
