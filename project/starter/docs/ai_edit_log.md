@@ -87,23 +87,39 @@ For each AI interaction, create a new entry with the following structure:
 
 ---
 
-### [Date] - [Brief Description]
+### 2026-10-17 - Phase 2: Quiz Engine with Strategy and Factory Patterns
 
-**Context:** 
+**Context:** Phase 2 of the project: build the quiz engine. It needs three ways of serving questions (sequential, random, adaptive), implemented with the Strategy pattern, plus a Factory that picks the mode from user input.
 
-**AI Tool Used:** 
+**AI Tool Used:** Claude Code (Claude Opus 5.5)
 
-**Prompt/Request:** 
+**Prompt/Request:** "We need to implement quiz engine using the Strategy Pattern. I want 3 different ways to ask question, sequential mode, randome mode and adaptive mode. Create a quiz mode abstract class and then use factory pattern to select the correct mode based on user input. ask me if you need  more details about how implementing the 3 modes"
 
-**AI Response:** 
+Before the prompt, the AI listed the decisions the brief leaves open (session end, adaptive behaviour, answer matching, stats, unknown modes, randomness in tests, keeping input/output out of the engine). Because the prompt invited questions, it asked four multiple-choice questions before writing code. My answers:
+- Adaptive behaviour: "prioritize cards the user gets wrong"
+- Session end: every card once in sequential and random mode; adaptive mode runs until every card has been answered correctly
+- Answer matching: ignore case and spaces
+- Unknown mode name: raise a clear error
 
-**Changes Made:** 
+**AI Response:**
+- Noted that my adaptive answer restated the brief rather than choosing a mechanism, and stated how it interpreted it: a card answered wrong goes back into the queue ahead of the cards not yet asked, after 2 other cards (`retry_gap`, configurable), and leaves the queue only when answered correctly. It asked me to say if I meant something else.
+- Created `utils/quiz_engine.py`:
+  - Strategy: an abstract `QuizMode` holds the shared session logic (current card, answer checking, `QuizStats` with correct/incorrect/accuracy and mistakes per card). Subclasses decide only which card comes next (`_select_next`) and how to react to an answer (`_after_answer`). `SequentialMode`, `RandomMode` and `AdaptiveMode` share a small queue-based helper class.
+  - Factory: `create_quiz_mode(name, cards)` looks the name up in a `QUIZ_MODES` registry, ignoring case and spaces. An unknown name raises `UnknownQuizModeError`, which lists the valid modes.
+  - The engine has no `input()` or `print()`, so the Phase 3 CLI owns all user interaction. `RandomMode` accepts a seeded `random.Random` so tests are repeatable.
+- Created `tests/test_quiz_modes.py` with the required `test_quiz_mode_factory` and `test_adaptive_mode_behavior`, plus tests for every mode, the retry gap, answer matching, stats and misuse (for example, asking for the next card before answering). 84 tests pass in total, `quiz_engine.py` has 100% coverage, and black, flake8 and mypy are clean. After the first run, the AI tightened one type hint (`Counter` to `Counter[str]`).
 
-**Reasoning:** 
+**Changes Made:**
+- none, accepted the implementation for adaptive mode proposed by AI
 
-**Outcome:** 
+**Reasoning:**
+- nothing to mention
 
-**Lessons Learned:** 
+**Outcome:**
+- phase 2 completed
+
+**Lessons Learned:**
+- prompt was slightly better than the first one but still needs more clarity
 
 ---
 
